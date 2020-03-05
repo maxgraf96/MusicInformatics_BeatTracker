@@ -1,0 +1,128 @@
+import librosa
+from scipy.signal import butter, filtfilt
+from pathlib import Path
+import numpy as np
+import os
+import IPython.display as ipd
+from scipy.signal import find_peaks
+import Constants
+import Main
+
+
+def apply_highpass_filter(sig, sr, cutoff, order):
+    """
+    Apply a butterworth filter of order "order" at given cutoff frequency
+    :param sig: The input signal
+    :param sr: The sampling rate of the system
+    :param cutoff: The cutoff-frequency of the filter
+    :param order: The filter order
+    :return: The filtered signal
+    """
+    # Filter requirements
+    T = 1 / sr  # Sampling period
+    f_nyquist = sr / 2
+
+    # Normalised cut-off frequency
+    normal_cutoff = cutoff / f_nyquist
+    # Get filter coefficients
+    b, a = butter(N=order, Wn=normal_cutoff, btype='highpass', analog=False)
+    return filtfilt(b, a, sig)
+
+
+def extract_tempo_information_from_beats_file(file):
+    with open("BallroomAnnotations-master/" + file) as f:
+        lines = f.read().splitlines()
+        last_beat = float(lines[-1][:-2])
+        tempo_bpm = 60 * len(lines) / last_beat
+        return tempo_bpm
+
+
+def find_tempo_period_bias():
+    """
+    Find tempo period bias, i.e. the mean period of the tempi over a set of data
+    """
+    # Check if tempo period bias has been calculated before
+    if not os.path.exists("tempo_period_bias.txt") or os.stat("tempo_period_bias.txt").st_size == 0:
+        all_files = Path('BallroomAnnotations-master').rglob('*.beats')
+        tempos = []
+        for file in all_files:
+            tempos.append(extract_tempo_information_from_beats_file(file.name))
+        mean_bpm = np.mean(tempos)
+        mean_seconds = 60 / mean_bpm
+
+        # Save to file
+        f = open('tempo_period_bias.txt', 'w+')
+        f.write(str(mean_bpm))
+        return mean_bpm
+
+    # If it has been calculated, save time and return the recorded value
+    # NB: This means that the file has to be deleted or cleared in order to recalculate the tempo period bias
+    else:
+        f = open('tempo_period_bias.txt', 'r')
+        return float(f.read())
+
+
+def autocorrelation_weighting(tau, TAU_0):
+    # Value for στ (the width of the weighting curve for the autocorrelation window in octaves)
+    w_autocorrelation_window = 0.9
+    return np.exp((-1 / 2) * ((np.log2(tau / TAU_0) / w_autocorrelation_window) ** 2))
+
+def F_squared_error(delta_t, tau):
+    return -np.log10(delta_t / tau) ** 2
+
+def estimate_tempo(ose):
+    """
+    This function uses the precomputed global tempo information parameters to estimate the tempo
+    of one piece
+    :param ose: The onset strength envelope
+    :return: The tactus estimate, the estimated tempo expressed in terms of OSE frames
+                and whether duple (True) or triple (False) tempo is assumed
+    """
+    # The list of tempo period strengths
+    TPS = []
+
+    # Calculate autocorrelation of onset strength envelope
+    ac = librosa.autocorrelate(ose)
+
+    for tau in range(1, ose.size):
+        res = autocorrelation_weighting(tau, Constants.TAU_0) * ac[tau]
+        TPS.append(res)
+    tau_index = np.argmax(TPS)
+    index_samples = tau_index * Constants.FFT_HOP
+    tau_est = index_samples / Constants.OSE_SAMPLE_RATE
+    tempo_est = 60 / tau_est
+
+    # Do TPS2 and 3
+    def get_TPS2(tau):
+        return TPS[tau] + 0.5 * TPS[2 * tau] + 0.25 * TPS[2 * tau - 1] + 0.25 * TPS[2 * tau + 1]
+    def get_TPS3(tau):
+        return TPS[tau] + 0.33 * TPS[3 * tau] + 0.33 * TPS[3 * tau - 1] + 0.33 * TPS[3 * tau + 1]
+
+    TPS2 = []
+    TPS3 = []
+    search_range = 2000  # corresponds to the first 8 seconds of the song
+    for tau in range(1, search_range):
+        TPS2.append(get_TPS2(tau))
+        TPS3.append(get_TPS3(tau))
+    tau2 = np.argmax(TPS2)
+    tau3 = np.argmax(TPS3)
+
+    max_vals = [TPS[tau_index], TPS2[tau2], TPS3[tau3]]
+    metre = np.argmax(max_vals)
+
+    if metre == 0:
+        # Duple tempo normal time
+        tau_samples = tau_index * Constants.FFT_HOP
+        tactus = tau_samples / Constants.OSE_SAMPLE_RATE
+        return tactus, tau_index, True
+    elif metre == 1:
+        # Duple tempo double time
+        tau_samples = tau2 * Constants.FFT_HOP
+        tactus = (1 / 2) * tau_samples / Constants.OSE_SAMPLE_RATE
+        return tactus, tau2, True
+    elif metre == 2:
+        # Triplet tempo
+        tau_samples = tau3 * Constants.FFT_HOP
+        tactus = (1 / 3) * tau_samples / Constants.OSE_SAMPLE_RATE
+        return tactus, tau3, False
+
