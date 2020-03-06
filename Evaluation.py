@@ -11,9 +11,14 @@ from Constants import OSE_SAMPLE_RATE, FFT_HOP
 from Ellis_07_Search import ellis_07_search
 
 MARGIN = 70
-N = 10
+N = 50
 
 def get_beats_from_file(file):
+    """
+    Extract beat information from *.beats file
+    :param file: The file
+    :return: List of beats and list of downbeats
+    """
     with open("BallroomAnnotations-master/" + file, 'r') as f:
         beats = []
         downbeats = []
@@ -22,19 +27,27 @@ def get_beats_from_file(file):
             # Convert beat times to compare with results
             time = int(float(time) * OSE_SAMPLE_RATE / FFT_HOP)
             beats.append(time)
+            # Append downbeat
             if int(beat_nr) == 1:
                 downbeats.append(time)
             if not line:
-                break
+                break  # End of file reached
 
         return beats, downbeats
 
 def evaluate_file(file, ellis=False):
+    """
+    Analyse a given file and calculate its f-measure
+    :param file: The path to the *.wav file
+    :param ellis: If set to true, the algorithm specified by Ellis 2007 will be used for the beat calculation
+    :return: The correct beats (read from *.beats file), the found beats, the correct downbeats, the downbeats,
+    the onset strength envelope, accuracy for true positives of beats and downbeats, f-measure for beats and downbeats
+    """
     # Get last part of file path for getting the original beat data
     # And replace ".wav" with ".beats"
     filename = file.split('\\')[2][:-4] + ".beats"
     c_beats, c_downbeats = get_beats_from_file(filename)
-    beats, downbeats, ose = Main.analyse(file)
+    beats, downbeats, ose, sig = Main.analyse(file)
 
     # Use the algorithm specified by Ellis
     if ellis:
@@ -124,8 +137,11 @@ def evaluate_file(file, ellis=False):
         recall_d = len(TP_D) / (len(TP_D) + len(FN_D))
         f_measure_d = 2 * ((precision_d * recall_d) / (precision_d + recall_d))
 
+    # Calculate avg score for TP (beats and downbeats)
     acc_TP = len(TP) / len(c_beats)
     acc_TP_down = len(TP_D) / len(c_downbeats)
+
+    # Print evaluation
     print("TP accuracy for " + filename[:-6] + ".wav: " + str(round(acc_TP, 2)))
     print("TP downbeat accuracy: " + str(round(acc_TP_down, 2)))
     print("F-measure: " + str(round(f_measure, 2)))
@@ -159,8 +175,8 @@ def evaluate_all():
 
 # current_file = "BallroomData\\ChaChaCha\\Albums-Cafe_Paradiso-07.wav"
 # current_file = "BallroomData\\ChaChaCha\\Albums-Cafe_Paradiso-06.wav"
-current_file = "BallroomData\\ChaChaCha\\Albums-Cafe_Paradiso-08.wav"
+# current_file = "BallroomData\\ChaChaCha\\Albums-Cafe_Paradiso-08.wav"
 # current_file = "BallroomData\\Rumba-Misc\\Media-103511.wav"
 # correct, found, correct_downbeats, found_downbeats, ose, accuracy, accuracy_down, f_measure, f_measure_d = evaluate_file(current_file)
 # Plot.plot_evaluation(correct, found, correct_downbeats, found_downbeats, ose)
-# evaluate_all()
+evaluate_all()

@@ -8,16 +8,6 @@ import Plot
 import Constants
 from Constants import OSE_SAMPLE_RATE, FFT_HOP
 import Functions
-from Ellis_07_Search import ellis_07_search
-
-MOMENTUM = 0.01
-FOD = None
-ITERATIONS = 1
-
-# Placeholder for current file and its sample rate
-CURRENT_SIGNAL = None
-SR = None
-
 
 def calculate_onset_strength_envelope(audio, sr):
     """
@@ -33,15 +23,15 @@ def calculate_onset_strength_envelope(audio, sr):
     mel_spectrogram = librosa.feature.melspectrogram(audio, OSE_SAMPLE_RATE, spectrogram, n_mels=40)
 
     # Calculate first order difference over time axis
-    FOD = np.diff(mel_spectrogram, n=1, axis=1)
+    fod = np.diff(mel_spectrogram, n=1, axis=1)
     # Perform half-wave rectification
-    FOD[FOD < 0] = 0
+    fod[fod < 0] = 0
 
     # Sum remaining values over frequency-band axis
-    FOD = np.sum(FOD, axis=0)
+    fod = np.sum(fod, axis=0)
 
     # High-pass resulting signal with cutoff at 0.4Hz
-    ose = Functions.apply_highpass_filter(FOD, OSE_SAMPLE_RATE, 0.4, 2)
+    ose = Functions.apply_highpass_filter(fod, OSE_SAMPLE_RATE, 0.4, 2)
 
     # Convolve with 20ms Gaussian window
     M = 0.02 * OSE_SAMPLE_RATE
@@ -53,7 +43,6 @@ def calculate_onset_strength_envelope(audio, sr):
     ose = ose / np.std(ose)
 
     return ose
-
 
 def state_space_search(ose, tau_index, is_duple_tempo):
     """
@@ -156,19 +145,15 @@ def state_space_search(ose, tau_index, is_duple_tempo):
     downbeats = [beats[i] for i in downbeat_indices]
     return beats, downbeats
 
-def run(file):
-    global ITERATIONS
-    global CURRENT_SIGNAL, SR
-
-    Constants.TAU_0 = Functions.find_tempo_period_bias()
-    CURRENT_SIGNAL, SR = librosa.core.load(file)
-
-    ose = calculate_onset_strength_envelope(CURRENT_SIGNAL, SR)
-    tau_est, tau_index, is_duple_tempo = Functions.estimate_tempo(ose)
-
-    beats, downbeats = state_space_search(ose, tau_index, is_duple_tempo)
-    return beats, downbeats, ose, CURRENT_SIGNAL
-
 def analyse(file):
-    beats, downbeats, ose, y = run(file)
-    return beats, downbeats, ose
+    # Get tempo period bias
+    Constants.TAU_0 = Functions.find_tempo_period_bias()
+    # Load audio file
+    sig, sr = librosa.core.load(file)
+    # Calculate the onset strength envelope
+    ose = calculate_onset_strength_envelope(sig, sr)
+    # Estimate tempo from onset strength envelope
+    tau_est, tau_index, is_duple_tempo = Functions.estimate_tempo(ose)
+    # Get beats and downbeats
+    beats, downbeats = state_space_search(ose, tau_index, is_duple_tempo)
+    return beats, downbeats, ose, sig
