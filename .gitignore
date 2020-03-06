@@ -1,0 +1,4 @@
+# Ignore txt files in CreatedAnnotations
+CreatedAnnotations/*
+BallroomData/*
+*.docx

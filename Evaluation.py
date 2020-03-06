@@ -11,12 +11,14 @@ from Constants import OSE_SAMPLE_RATE, FFT_HOP
 from Ellis_07_Search import ellis_07_search
 
 MARGIN = 70
-N = 50
+N = 10
 
-def get_beats_from_file(file):
+def get_beats_from_file(file, in_seconds=False):
     """
     Extract beat information from *.beats file
     :param file: The file
+    :param in_seconds: Whether the beats and downbeat times should be returned in seconds or in terms of the
+    onset strength envelope frames
     :return: List of beats and list of downbeats
     """
     with open("BallroomAnnotations-master/" + file, 'r') as f:
@@ -25,7 +27,10 @@ def get_beats_from_file(file):
         for line in f:
             time, beat_nr = tuple(line.rstrip().split())
             # Convert beat times to compare with results
-            time = int(float(time) * OSE_SAMPLE_RATE / FFT_HOP)
+            if in_seconds:
+                time = float(time)
+            else:
+                time = int(float(time) * OSE_SAMPLE_RATE / FFT_HOP)
             beats.append(time)
             # Append downbeat
             if int(beat_nr) == 1:
@@ -48,6 +53,11 @@ def evaluate_file(file, ellis=False):
     filename = file.split('\\')[2][:-4] + ".beats"
     c_beats, c_downbeats = get_beats_from_file(filename)
     beats, downbeats, ose, sig = Main.analyse(file)
+
+    # Convert beats and downbeats from seconds to frames to compare
+    # int conversion necessary because for this evaluation method values are indices
+    beats = list(map(int, [beat * OSE_SAMPLE_RATE / FFT_HOP for beat in beats]))
+    downbeats = list(map(int, [downbeat * OSE_SAMPLE_RATE / FFT_HOP for downbeat in downbeats]))
 
     # Use the algorithm specified by Ellis
     if ellis:
@@ -179,4 +189,4 @@ def evaluate_all():
 # current_file = "BallroomData\\Rumba-Misc\\Media-103511.wav"
 # correct, found, correct_downbeats, found_downbeats, ose, accuracy, accuracy_down, f_measure, f_measure_d = evaluate_file(current_file)
 # Plot.plot_evaluation(correct, found, correct_downbeats, found_downbeats, ose)
-evaluate_all()
+# evaluate_all()
