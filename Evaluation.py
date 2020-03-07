@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import numpy as np
@@ -5,13 +6,14 @@ import numpy as np
 import Functions
 import Main
 import Plot
-from Constants import OSE_SAMPLE_RATE, FFT_HOP
+from Globals import OSE_SAMPLE_RATE, FFT_HOP
 
-# Allowed inaccuracy window in ms
 from Ellis_07_Search import ellis_07_search
 
+# Allowed inaccuracy window in ms
 MARGIN = 70
-N = 10
+# Limit for evaluate_all()
+N = 20
 
 def get_beats_from_file(file, in_seconds=False):
     """
@@ -50,7 +52,7 @@ def evaluate_file(file, ellis=False):
     """
     # Get last part of file path for getting the original beat data
     # And replace ".wav" with ".beats"
-    filename = file.split('\\')[2][:-4] + ".beats"
+    filename = file.split(os.path.sep)[2][:-4] + ".beats"
     c_beats, c_downbeats = get_beats_from_file(filename)
     beats, downbeats, ose, sig = Main.analyse(file)
 
@@ -158,7 +160,7 @@ def evaluate_file(file, ellis=False):
     print("F-measure for downbeats: " + str(round(f_measure_d, 2)))
     return c_beats, beats, c_downbeats, downbeats, ose, acc_TP, acc_TP_down, f_measure, f_measure_d
 
-def evaluate_all():
+def evaluate_all(ellis=False):
     # Evaluate N files
     accuracies = []
     accuracies_d = []
@@ -167,7 +169,7 @@ def evaluate_all():
     files = Path('BallroomData').rglob('*.wav')
     counter = 0
     for file in files:
-        correct_beats, beats, correct_downbeats, downbeats, ose, acc_TP, acc_TP_down, f_measure, f_measure_d = evaluate_file(str(file))
+        correct_beats, beats, correct_downbeats, downbeats, ose, acc_TP, acc_TP_down, f_measure, f_measure_d = evaluate_file(str(file), ellis)
         accuracies.append(acc_TP)
         accuracies_d.append(acc_TP_down)
         f_measures.append(f_measure)
@@ -187,6 +189,6 @@ def evaluate_all():
 # current_file = "BallroomData\\ChaChaCha\\Albums-Cafe_Paradiso-06.wav"
 # current_file = "BallroomData\\ChaChaCha\\Albums-Cafe_Paradiso-08.wav"
 # current_file = "BallroomData\\Rumba-Misc\\Media-103511.wav"
-# correct, found, correct_downbeats, found_downbeats, ose, accuracy, accuracy_down, f_measure, f_measure_d = evaluate_file(current_file)
-# Plot.plot_evaluation(correct, found, correct_downbeats, found_downbeats, ose)
-# evaluate_all()
+# correct, found, correct_downbeats, found_downbeats, ose, accuracy, accuracy_down, f_measure, f_measure_d = evaluate_file(current_file, ellis=True)
+# Plot.plot_evaluation(correct, found, correct_downbeats, found_downbeats, ose, ellis=True)
+# evaluate_all(ellis=True)

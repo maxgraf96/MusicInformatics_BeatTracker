@@ -1,5 +1,5 @@
 import numpy as np
-import Constants
+import Globals
 import Functions
 from scipy.signal import find_peaks
 
@@ -7,7 +7,7 @@ from scipy.signal import find_peaks
 ALPHA = 30
 
 def ellis_07_search(ose, tau_index):
-    Constants.TAU_0 = Functions.find_tempo_period_bias()
+    Globals.TAU_0 = Functions.find_tempo_period_bias()
 
     # Naming conventions per paper: C is the objective function
     C = np.zeros(ose.size)
@@ -54,21 +54,5 @@ def ellis_07_search(ose, tau_index):
 
     # Reverse so the order is correct
     beats.reverse()
-
-    # Calculate total offset of beats from peaks
-    peaks = find_peaks(ose)[0]
-    # How far to look back for peak from beat
-    look = 24
-    for i in range(len(beats)):
-        beat_idx = beats[i]
-        if beat_idx < look:
-            continue
-        # Find closest peak
-        start = beat_idx - look
-        end = beat_idx
-        for j in range(start, end):
-            if j in peaks:
-                beats[i] = j
-                continue
 
     return beats, [], ose

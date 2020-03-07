@@ -5,8 +5,8 @@ import IPython.display as ipd
 from scipy.signal import find_peaks
 
 import Plot
-import Constants
-from Constants import OSE_SAMPLE_RATE, FFT_HOP
+import Globals
+from Globals import OSE_SAMPLE_RATE, FFT_HOP
 import Functions
 
 def beatTracker(inputFile):
@@ -20,7 +20,7 @@ def beatTracker(inputFile):
 
 def analyse(file):
     # Get tempo period bias
-    Constants.TAU_0 = Functions.find_tempo_period_bias()
+    Globals.TAU_0 = Functions.find_tempo_period_bias()
     # Load audio file
     sig, sr = librosa.core.load(file)
     # Calculate the onset strength envelope
@@ -122,7 +122,6 @@ def state_space_search(ose, tau_index, is_duple_tempo):
                 # Add found beat to list of beats
                 beats.append(candidate)
 
-                # Estimate beat strength
                 # Reset downbeat counter if it is over the metre value
                 if downbeat_counter > metre:
                     downbeat_counter = 1

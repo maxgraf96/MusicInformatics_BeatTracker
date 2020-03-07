@@ -5,7 +5,7 @@ import numpy as np
 import os
 import IPython.display as ipd
 from scipy.signal import find_peaks
-import Constants
+import Globals
 import Main
 
 def estimate_tempo(ose):
@@ -25,17 +25,17 @@ def estimate_tempo(ose):
     # For each frame of the autocorrelated onset strength envelope save the
     # weighted value (as seen in the Ellis paper)
     for tau in range(1, ose.size):
-        res = autocorrelation_weighting(tau, Constants.TAU_0) * ac[tau]
+        res = autocorrelation_weighting(tau, Globals.TAU_0) * ac[tau]
         TPS.append(res)
     # This index stores the highest value -> this indicates the most likely tempo
     tau_index = np.argmax(TPS)
     # Express in terms of samples
-    index_samples = tau_index * Constants.FFT_HOP
+    index_samples = tau_index * Globals.FFT_HOP
     # Express in terms of seconds
-    tau_est = index_samples / Constants.OSE_SAMPLE_RATE
+    tau_est = index_samples / Globals.OSE_SAMPLE_RATE
     tempo_est = 60 / tau_est
 
-    # Helper functions for calculating duple and triple tempos
+    # Helper functions for calculating the probabilities of duple and triple tempos
     def get_TPS2(tau):
         return TPS[tau] + 0.5 * TPS[2 * tau] + 0.25 * TPS[2 * tau - 1] + 0.25 * TPS[2 * tau + 1]
     def get_TPS3(tau):
@@ -55,18 +55,18 @@ def estimate_tempo(ose):
 
     if metre == 0:
         # Duple tempo normal time
-        tau_samples = tau_index * Constants.FFT_HOP
-        tactus = tau_samples / Constants.OSE_SAMPLE_RATE
+        tau_samples = tau_index * Globals.FFT_HOP
+        tactus = tau_samples / Globals.OSE_SAMPLE_RATE
         return tactus, tau_index, True
     elif metre == 1:
         # Duple tempo double time
-        tau_samples = tau2 * Constants.FFT_HOP
-        tactus = (1 / 2) * tau_samples / Constants.OSE_SAMPLE_RATE
+        tau_samples = tau2 * Globals.FFT_HOP
+        tactus = (1 / 2) * tau_samples / Globals.OSE_SAMPLE_RATE
         return tactus, tau2, True
     elif metre == 2:
         # Triplet tempo
-        tau_samples = tau3 * Constants.FFT_HOP
-        tactus = (1 / 3) * tau_samples / Constants.OSE_SAMPLE_RATE
+        tau_samples = tau3 * Globals.FFT_HOP
+        tactus = (1 / 3) * tau_samples / Globals.OSE_SAMPLE_RATE
         return tactus, tau3, False
 
 
